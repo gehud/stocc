@@ -6,7 +6,35 @@ project(Stocc
 )
 
 set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
+
+include(FetchContent)
+
+set(BOOST_INCLUDE_LIBRARIES accumulators program_options)
+
+FetchContent_Declare(
+    Boost
+    GIT_REPOSITORY https://github.com/boostorg/boost.git
+    GIT_TAG boost-1.90.0
+)
+
+FetchContent_MakeAvailable(Boost)
+
+FetchContent_Declare(
+    spdlog
+    GIT_REPOSITORY https://github.com/gabime/spdlog.git
+    GIT_TAG v1.17.0
+)
+
+FetchContent_MakeAvailable(spdlog)
+
+FetchContent_Declare(
+    tomlplusplus
+    GIT_REPOSITORY https://github.com/marzer/tomlplusplus.git
+    GIT_TAG v3.4.0
+)
+
+FetchContent_MakeAvailable(tomlplusplus)
 
 file(GLOB_RECURSE PROJECT_SOURCE_FILES "src/*.cpp" "src/*.hpp")
 
@@ -14,7 +42,7 @@ add_executable(${PROJECT_NAME} ${PROJECT_SOURCE_FILES})
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
-)
-set_target_properties(${PROJECT_NAME} PROPERTIES
     OUTPUT_NAME "stocc"
 )
+
+target_link_libraries(${PROJECT_NAME} PRIVATE Boost::accumulators Boost::program_options spdlog::spdlog tomlplusplus::tomlplusplus)
