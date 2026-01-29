@@ -1,5 +1,7 @@
 #include <print>
 
+#include "log.hpp"
+
 auto main() -> int {
-    std::println("Hello, C++23!");
+    LOG_INFO("Hello, C++{}!", 23);
 }

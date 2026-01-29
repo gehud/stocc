@@ -10,7 +10,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
 include(FetchContent)
 
-set(BOOST_INCLUDE_LIBRARIES accumulators program_options)
+set(BOOST_INCLUDE_LIBRARIES
+    accumulators
+    program_options
+)
 
 FetchContent_Declare(
     Boost
@@ -36,7 +39,10 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(tomlplusplus)
 
-file(GLOB_RECURSE PROJECT_SOURCE_FILES "src/*.cpp" "src/*.hpp")
+file(GLOB_RECURSE PROJECT_SOURCE_FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.hpp"
+)
 
 add_executable(${PROJECT_NAME} ${PROJECT_SOURCE_FILES})
 
@@ -45,4 +51,9 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     OUTPUT_NAME "stocc"
 )
 
-target_link_libraries(${PROJECT_NAME} PRIVATE Boost::accumulators Boost::program_options spdlog::spdlog tomlplusplus::tomlplusplus)
+target_link_libraries(${PROJECT_NAME} PRIVATE
+    Boost::accumulators
+    Boost::program_options
+    spdlog::spdlog
+    tomlplusplus::tomlplusplus
+)
