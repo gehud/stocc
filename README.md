@@ -27,10 +27,10 @@ Run the program with the default configuration:
 stocc
 ```
 
-Or specify it using the ```--config``` argment:
+Or specify it using the ```-config``` or ```-cfg``` argment:
 
 ```bash
-stocc --config path_to_toml_config_file
+stocc -cfg path_to_toml_config_file
 ```
 
 ## License
