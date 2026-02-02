@@ -27,11 +27,25 @@ Run the program with the default configuration:
 stocc
 ```
 
-Or specify it using the ```-config``` or ```-cfg``` argment:
+Or specify it using the `--config` or `-c` argment:
 
 ```bash
-stocc -cfg path_to_toml_config_file
+stocc --config path_to_toml_config_file
 ```
+
+To produce help message use `--help` or `-h` argument:
+
+```bash
+stocc --help
+```
+
+To enable logging specify log level with `--log-level` or `-l` argument:
+
+```bash
+stocc --log-level info
+```
+
+Available logging levels (trace, debug, info, warn, err, critical, off).
 
 ## License
 This project is licensed under the MIT License — see `LICENSE` for details.
