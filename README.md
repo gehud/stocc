@@ -20,8 +20,14 @@ cmake --build build --config Release
 
 The resulting executable will be in `build/bin/stocc`.
 
+Now you can run program from the current directory with example config:
+
+```bash
+./build/bin/stocc
+```
+
 ## Usage
-Run the program with the default configuration:
+Run the program with configuration from the working direcotry:
 
 ```bash
 stocc
@@ -46,6 +52,21 @@ stocc --log-level info
 ```
 
 Available logging levels (trace, debug, info, warn, err, critical, off).
+
+## Configuration
+
+An example config file: `config.toml`
+
+```toml
+[main]
+input = "examples/input" # 1
+output = "examples/output" # 2
+filename_mask = ['level', 'trade'] # 3
+```
+
+1. Input files durectory
+2. Output files directory *(optional)*. By default `./output` direcotry created.
+3. File name filter *(optional)*. Only files whose names contain at least one of the specified masks are read. If the list is empty, all CSV files are read.
 
 ## License
 This project is licensed under the MIT License — see `LICENSE` for details.

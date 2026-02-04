@@ -12,6 +12,7 @@ include(FetchContent)
 
 set(BOOST_INCLUDE_LIBRARIES
     accumulators
+    algorithm
     program_options
 )
 
@@ -22,6 +23,8 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(Boost)
+
+set(SPDLOG_USE_STD_FORMAT TRUE)
 
 FetchContent_Declare(
     spdlog
@@ -51,8 +54,10 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     OUTPUT_NAME "stocc"
 )
 
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Boost::accumulators
+    Boost::algorithm
     Boost::program_options
     spdlog::spdlog
     tomlplusplus::tomlplusplus

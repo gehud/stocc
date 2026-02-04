@@ -11,3 +11,4 @@ indent_size = 4
 [*.{cpp,hpp}]
 max_line_length = 80
 cpp_new_line_before_open_brace = none
+cpp_indent_namespace_contents = false
