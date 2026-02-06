@@ -1,3 +1,5 @@
+#pragma once
+
 #include <expected>
 #include <filesystem>
 #include <format>
@@ -17,15 +19,33 @@ struct config {
     fs::path input;
     fs::path output;
     std::vector<std::string> filename_mask;
+
+    auto is_file_matches_mask(const fs::path& path) const -> bool {
+        if (!fs::is_regular_file(path)) {
+            return false;
+        }
+
+        if (filename_mask.empty()) {
+            return true;
+        }
+
+        for (const auto& filter : filename_mask) {
+            if (path.filename().string().contains(filter)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 };
 
 class config_error : public std::runtime_error {
 public:
-    config_error(const std::string& what)
-        : std::runtime_error(std::format("Config error: {}", what)) {}
+    config_error(const fs::path& path, const std::string& what)
+        : std::runtime_error(std::format("Config error (at '{}'): {}", path.string(), what)) {}
 };
 
-auto parse_config(
+auto load_config(
     const fs::path& path
 ) -> std::expected<config, config_error>
 {
@@ -34,37 +54,43 @@ auto parse_config(
     try {
         table = toml::parse_file(path.string());
     } catch (const toml::parse_error& error) {
-        return std::unexpected(config_error(error.what()));
+        return std::unexpected(config_error(path, error.what()));
     }
 
     auto main = table["main"];
 
     if (!main) {
-        return std::unexpected(config_error("Missing '[main]' table"));
+        return std::unexpected(config_error(path, "Missing '[main]' table"));
     }
 
     if (!main.is_table()) {
-        return std::unexpected(config_error("'[main]' must be a table"));
+        return std::unexpected(config_error(path, "'[main]' must be a table"));
     }
 
     std::string input_value;
     auto input = main["input"];
 
     if (!input) {
-        return std::unexpected(config_error("Missing 'input' value"));
+        return std::unexpected(config_error(path, "Missing 'input' value"));
     }
 
     if (!input.is_value()) {
-        return std::unexpected(config_error("'input' must be a value"));
+        return std::unexpected(config_error(path, "'input' must be a value"));
     }
 
     auto new_input_value = input.value<std::string>();
 
     if (!new_input_value) {
-        return std::unexpected(config_error("'input' must be a string"));
+        return std::unexpected(config_error(path, "'input' must be a string"));
     }
 
     input_value = *new_input_value;
+
+    if (!fs::exists(input_value)) {
+        return std::unexpected(
+            config_error(path, "Specified 'input' path does not exist")
+        );
+    }
 
     std::string output_value;
     auto output = main["output"];
@@ -73,7 +99,7 @@ auto parse_config(
         auto new_output_value = output.value<std::string>();
 
         if (!new_output_value) {
-            return std::unexpected(config_error("'output' must be a string"));
+            return std::unexpected(config_error(path, "'output' must be a string"));
         }
 
         output_value = *new_output_value;
@@ -87,7 +113,7 @@ auto parse_config(
 
         if (!new_filename_mask) {
             return std::unexpected(
-                config_error("'filename_mask' field must be an array")
+                config_error(path, "'filename_mask' field must be an array")
             );
         }
 
@@ -96,7 +122,7 @@ auto parse_config(
 
             if (!filter) {
                 return std::unexpected(
-                    config_error("'filename_mask' item must be a string")
+                    config_error(path, "'filename_mask' item must be a string")
                 );
             }
 
@@ -110,13 +136,19 @@ auto parse_config(
         .filename_mask = filename_mask_value
     };
 
+    if (!fs::exists(config.output) && !fs::create_directories(config.output)) {
+        return std::unexpected(config_error(path, "Could not create 'output' directory"));
+    }
+
     return config;
 }
 
 } // namespace stocc
 
+namespace std {
+
 template<>
-struct std::formatter<stocc::config> {
+struct formatter<stocc::config> {
     static constexpr const char* config_fmt = R"(
 {{
     input = {},
@@ -124,13 +156,13 @@ struct std::formatter<stocc::config> {
     filename_mask = [{}]
 }})";
 
-    constexpr auto parse(std::format_parse_context& ctx) {
+    constexpr auto parse(format_parse_context& ctx) {
         return ctx.begin();
     }
 
     auto format(stocc::config config, format_context& ctx) const {
         auto filename_mask = algo::join(config.filename_mask, ", ");
-        return std::format_to(
+        return format_to(
             ctx.out(),
             config_fmt,
             config.input.string(),
@@ -139,3 +171,5 @@ struct std::formatter<stocc::config> {
         );
     }
 };
+
+} // namespace std

@@ -59,8 +59,8 @@ An example config file: `config.toml`
 
 ```toml
 [main]
-input = "examples/input" # 1
-output = "examples/output" # 2
+input = "./examples/input" # 1
+output = "./examples/output" # 2
 filename_mask = ['level', 'trade'] # 3
 ```
 

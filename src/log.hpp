@@ -14,7 +14,8 @@ namespace stocc {
 
 class log_error : public std::runtime_error {
 public:
-    log_error(const std::string& what) : std::runtime_error(std::format("Log error: {}", what)) {}
+    log_error(const std::string& what)
+        : std::runtime_error(std::format("Log error: {}", what)) {}
 };
 
 auto set_log_level(const std::string_view& level) -> std::expected<void, log_error> {

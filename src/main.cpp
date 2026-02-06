@@ -1,14 +1,20 @@
 #include <filesystem>
 #include <iostream>
+#include <print>
 #include <string>
 
 #include <boost/program_options.hpp>
 
 #include <config.hpp>
+#include <csv.hpp>
 #include <log.hpp>
 
 namespace fs = std::filesystem;
 namespace po = boost::program_options;
+
+auto print_exception(const std::exception& exception) {
+    std::println(stderr, "Error: {}", exception.what());
+}
 
 auto main(int argc, char* argv[]) -> int {
     fs::path config_path("./config.toml");
@@ -30,7 +36,7 @@ auto main(int argc, char* argv[]) -> int {
         po::store(po::parse_command_line(argc, argv, options), vm);
         po::notify(vm);
     } catch (const po::error& error) {
-        std::cerr << "Error: " << error.what() << std::endl;
+        print_exception(error);
         std::cout << options << std::endl;
         return EXIT_FAILURE;
     }
@@ -42,21 +48,33 @@ auto main(int argc, char* argv[]) -> int {
 
     auto set_log_level_result = stocc::set_log_level(log_level);
     if (!set_log_level_result.has_value()) {
-        std::cerr << "Error: " << set_log_level_result.error().what() << std::endl;
+        print_exception(set_log_level_result.error());
         return EXIT_FAILURE;
     }
 
-    LOG_INFO("Config path: {}", config_path.string());
+    LOG_INFO("Loading config at path: {}", config_path.string());
 
-    auto parse_config_result = stocc::parse_config(config_path);
-    if (!parse_config_result.has_value()) {
-        std::cerr << "Error: " << parse_config_result.error().what() << std::endl;
+    auto load_config_result = stocc::load_config(config_path);
+    if (!load_config_result.has_value()) {
+        print_exception(load_config_result.error());
         return EXIT_FAILURE;
     }
 
-    auto config = parse_config_result.value();
+    auto config = load_config_result.value();
 
-    LOG_INFO("Config: {}", config);
+    LOG_INFO("Loaded config: {}", config);
+
+    auto collect_prices_result = stocc::collect_prices(config);
+    if (!collect_prices_result.has_value()) {
+        print_exception(collect_prices_result.error());
+        return EXIT_FAILURE;
+    }
+
+    auto prices = collect_prices_result.value();
+
+    for (const auto& pair : prices) {
+        LOG_TRACE("{} - {}", pair.first, pair.second);
+    }
 
     return EXIT_SUCCESS;
 }

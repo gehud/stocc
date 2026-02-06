@@ -12,3 +12,4 @@ indent_size = 4
 max_line_length = 80
 cpp_new_line_before_open_brace = none
 cpp_indent_namespace_contents = false
+cpp_new_line_close_brace_same_line_empty_function = true
