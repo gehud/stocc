@@ -74,6 +74,11 @@ auto main(int argc, char* argv[]) -> int {
         return EXIT_FAILURE;
     }
 
+    auto output_file_path = config.output;
+    output_file_path.append("median_result.csv");
+    std::ofstream output_file(output_file_path);
+    std::println(output_file, "receive_ts;price_median");
+
     auto prices = collect_prices_result.value();
 
     accum::accumulator_set<
@@ -97,7 +102,7 @@ auto main(int argc, char* argv[]) -> int {
 
         if (median != last_median) {
             last_median = median;
-            LOG_INFO("Median changed: {} - {}", pair.first, median);
+            std::println(output_file, "{};{}", pair.first, last_median);
         }
 
         ++index;
