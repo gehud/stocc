@@ -79,34 +79,32 @@ auto main(int argc, char* argv[]) -> int {
     std::ofstream output_file(output_file_path);
     std::println(output_file, "receive_ts;price_median");
 
-    auto prices = collect_prices_result.value();
+    // accum::accumulator_set<
+    //     double,
+    //     accum::stats<accum::tag::median(accum::with_p_square_quantile)>
+    // > stats;
 
-    accum::accumulator_set<
-        double,
-        accum::stats<accum::tag::median(accum::with_p_square_quantile)>
-    > stats;
+    // auto last_median = std::numeric_limits<double_t>::infinity();
+    // size_t index = 0;
+    // for (const auto& pair : prices) {
+    //     stats(pair.second);
 
-    auto last_median = std::numeric_limits<double_t>::infinity();
-    size_t index = 0;
-    for (const auto& pair : prices) {
-        stats(pair.second);
+    //     double_t median = 0;
+    //     if (index == 0) {
+    //         median = pair.second;
+    //     } else if (index == 1) {
+    //         median = (pair.second + last_median) / 2;
+    //     } else {
+    //         median = accum::median(stats);
+    //     }
 
-        double_t median = 0;
-        if (index == 0) {
-            median = pair.second;
-        } else if (index == 1) {
-            median = (pair.second + last_median) / 2;
-        } else {
-            median = accum::median(stats);
-        }
+    //     if (median != last_median) {
+    //         last_median = median;
+    //         std::println(output_file, "{};{}", pair.first, last_median);
+    //     }
 
-        if (median != last_median) {
-            last_median = median;
-            std::println(output_file, "{};{}", pair.first, last_median);
-        }
-
-        ++index;
-    }
+    //     ++index;
+    // }
 
     return EXIT_SUCCESS;
 }

@@ -2,13 +2,16 @@
 
 #include <expected>
 #include <filesystem>
+#include <functional>
 #include <limits>
-#include <map>
 #include <memory>
+#include <queue>
+#include <ranges>
 #include <string>
 #include <iostream>
 
 #include <config.hpp>
+#include <log.hpp>
 
 namespace fs = std::filesystem;
 
@@ -28,15 +31,11 @@ struct csv_row {
     double_t price;
 };
 
-class csv_iterator {
+class csv {
 public:
-    using value_type = csv_row;
-    using difference_type = std::ptrdiff_t;
-    using pointer = value_type*;
-    using reference = value_type&;
-    using iterator_category = std::forward_iterator_tag;
+    csv(const fs::path& path) {
+        std::ifstream stream(path);
 
-    csv_iterator(std::istream& stream) {
         std::string line;
         std::getline(stream, line);
 
@@ -65,51 +64,35 @@ public:
             throw csv_error("Missing 'price' column");
         }
 
-        _stream = &stream;
+        _stream.emplace(std::move(stream));
         ++(*this);
     }
 
-    csv_iterator() : _stream(nullptr) {}
-
-    csv_iterator& operator++() {
+    csv& operator++() {
         if (_stream) {
             if (!read_line()) {
-                _stream = nullptr;
+                _stream.reset();
             }
         }
 
         return *this;
     }
 
-    csv_iterator operator++(int) {
-        csv_iterator tmp(*this);
-        ++(*this);
-        return tmp;
+    std::optional<csv_row> operator*() const {
+        return _stream ? std::optional(_row) : std::nullopt;
     }
 
-    csv_row const& operator*() const {
-        return _row;
-    }
-
-    csv_row const* operator->() const {
-        return &_row;
-    }
-
-    bool operator==(csv_iterator const& rhs) const {
-        return (this == &rhs) || (_stream == nullptr && rhs._stream == nullptr);
-    }
-
-    bool operator!=(csv_iterator const& rhs) const {
-        return !(*this == rhs);
+    explicit operator bool() const {
+        return (bool)_stream;
     }
 private:
     size_t _receive_ts_index;
     size_t _price_index;
-    std::istream* _stream;
+    std::optional<std::ifstream> _stream;
     csv_row _row;
 
     auto read_line() -> bool {
-        if (_stream == nullptr) {
+        if (!_stream) {
             return false;
         }
 
@@ -134,44 +117,52 @@ private:
     }
 };
 
-class csv {
-public:
-    using iterator = csv_iterator;
-
-    csv(std::istream& stream) : _stream(stream) {}
-
-    iterator begin() const {
-        return iterator(_stream);
-    }
-
-    iterator end() const {
-        return iterator();
-    }
-private:
-    std::istream& _stream;
-};
-
-using prices = std::multimap<uint64_t, double_t>;
-
-auto collect_prices(const config& config) -> std::expected<prices, csv_error> {
-    prices prices;
+auto collect_prices(const config& config) -> std::expected<void, csv_error> {
+    std::vector<csv> files;
 
     for (const auto& entry : fs::directory_iterator(config.input)) {
         auto path = entry.path();
         if (config.is_file_matches_mask(path)) {
-            auto file = std::ifstream(path);
-            stocc::csv csv(file);
             try {
-                for (const auto& row : csv) {
-                    prices.insert({ row.receive_ts, row.price });
-                }
-            } catch (const stocc::csv_error& error) {
-                return std::unexpected(csv_error(path, error.what()));
+                files.emplace_back(path);
+            } catch (const csv_error& error) {
+                return std::unexpected(csv_error(error.what()));
             }
         }
     }
 
-    return prices;
+    struct entry {
+        size_t stream_id;
+        csv_row value;
+
+        bool operator>(const entry& other) const {
+            return value.receive_ts > other.value.receive_ts;
+        }
+    };
+
+    std::priority_queue<entry, std::vector<entry>, std::greater<entry>> queue;
+
+    for (size_t i = 0; i < files.size(); ++i) {
+        auto first = *files[i];
+
+        if (first) {
+            queue.emplace(i, *first);
+        }
+    }
+
+    while (!queue.empty()) {
+        auto current = queue.top();
+        queue.pop();
+
+        LOG_INFO("{} - {}", current.value.receive_ts, current.value.price);
+
+        auto value = *++files[current.stream_id];
+        if (value) {
+            queue.emplace(current.stream_id, *value);
+        }
+    }
+
+    return {};
 }
 
 } // namespace sotcc
