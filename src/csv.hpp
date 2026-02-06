@@ -2,6 +2,7 @@
 
 #include <expected>
 #include <filesystem>
+#include <limits>
 #include <map>
 #include <memory>
 #include <string>
@@ -42,8 +43,8 @@ public:
         std::stringstream line_stream(line);
         std::string cell;
 
-        _receive_ts_index = SIZE_MAX;
-        _price_index = SIZE_MAX;
+        _receive_ts_index = std::numeric_limits<size_t>::max();
+        _price_index = std::numeric_limits<size_t>::max();
 
         size_t index = 0;
         while (std::getline(line_stream, cell, ';')) {
@@ -56,11 +57,11 @@ public:
             ++index;
         }
 
-        if (_receive_ts_index == SIZE_MAX) {
+        if (_receive_ts_index == std::numeric_limits<size_t>::max()) {
             throw csv_error("Missing 'receive_ts' column");
         }
 
-        if (_price_index == SIZE_MAX) {
+        if (_price_index == std::numeric_limits<size_t>::max()) {
             throw csv_error("Missing 'price' column");
         }
 
