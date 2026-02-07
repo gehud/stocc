@@ -26,7 +26,7 @@ public:
         : std::runtime_error(std::format("Dataset error (at '{}'): {}", path.string(), what)) {}
 };
 
-struct dataset_pair {
+struct dataset_record {
     uint64_t receive_ts;
     double_t price;
 };
@@ -88,11 +88,11 @@ public:
         return *this;
     }
 
-    std::optional<dataset_pair> current() const {
-        return _stream ? std::optional(_pair) : std::nullopt;
+    std::optional<dataset_record> current() const {
+        return _stream ? std::optional(_record) : std::nullopt;
     }
 
-    std::optional<dataset_pair> operator*() const {
+    std::optional<dataset_record> operator*() const {
         return current();
     }
 
@@ -107,7 +107,7 @@ private:
     size_t _receive_ts_index;
     size_t _price_index;
     std::optional<std::ifstream> _stream;
-    dataset_pair _pair;
+    dataset_record _record;
 
     bool read_line() {
         if (!_stream) {
@@ -123,9 +123,9 @@ private:
         size_t index = 0;
         while (std::getline(line_stream, cell, ';')) {
             if (index == _receive_ts_index) {
-                _pair.receive_ts = std::stoul(cell);
+                _record.receive_ts = std::stoul(cell);
             } else if (index == _price_index) {
-                _pair.price = std::stod(cell);
+                _record.price = std::stod(cell);
             }
 
             ++index;
@@ -139,10 +139,10 @@ struct datasets {
 private:
     struct entry {
         size_t stream_id;
-        dataset_pair value;
+        dataset_record record;
 
         bool operator>(const entry& other) const {
-            return value.receive_ts > other.value.receive_ts;
+            return record.receive_ts > other.record.receive_ts;
         }
     };
 
@@ -153,26 +153,26 @@ private:
 public:
     class iterator {
     public:
-        using value_type = dataset_pair;
+        using value_type = dataset_record;
         using difference_type = std::ptrdiff_t;
         using pointer = const value_type*;
         using reference = const value_type&;
         using iterator_category = std::input_iterator_tag;
 
         reference operator*() const {
-            return _current.value;
+            return _current.record;
         }
 
         pointer operator->() const {
-            return &_current.value;
+            return &_current.record;
         }
 
         iterator& operator++() {
             _data->queue.pop();
 
-            auto value = *++_data->files[_current.stream_id];
-            if (value) {
-                _data->queue.emplace(_current.stream_id, *value);
+            auto record = *++_data->files[_current.stream_id];
+            if (record) {
+                _data->queue.emplace(_current.stream_id, *record);
             }
 
             if (_data->queue.empty()) {
@@ -240,6 +240,8 @@ public:
                 }
             }
         }
+
+        LOG_INFO("Files found: {}", datasets._data.files.size());
 
         for (size_t i = 0; i < datasets._data.files.size(); ++i) {
             auto first = *datasets._data.files[i];

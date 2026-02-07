@@ -5,6 +5,12 @@ project(Stocc
     LANGUAGES CXX
 )
 
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/project.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/project.hpp"
+    @ONLY
+)
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
@@ -55,6 +61,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Boost::accumulators
     Boost::algorithm
