@@ -20,10 +20,10 @@ namespace stocc {
 class dataset_error : public std::runtime_error {
 public:
     dataset_error(const std::string& what)
-        : std::runtime_error(std::format("Csv error: {}", what)) {}
+        : std::runtime_error(std::format("Dataset error: {}", what)) {}
 
     dataset_error(const fs::path& path, const std::string& what)
-        : std::runtime_error(std::format("Csv error (at '{}'): {}", path.string(), what)) {}
+        : std::runtime_error(std::format("Dataset error (at '{}'): {}", path.string(), what)) {}
 };
 
 struct dataset_pair {
@@ -63,11 +63,11 @@ public:
         }
 
         if (_receive_ts_index == std::numeric_limits<size_t>::max()) {
-            throw dataset_error(path, "Missing 'receive_ts' field at line 1");
+            throw dataset_error(path, "missing 'receive_ts' field at line 1");
         }
 
         if (_price_index == std::numeric_limits<size_t>::max()) {
-            throw dataset_error(path, "Missing 'price' field at line 1");
+            throw dataset_error(path, "missing 'price' field at line 1");
         }
 
         _stream.emplace(std::move(stream));

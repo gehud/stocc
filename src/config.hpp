@@ -52,7 +52,7 @@ struct config {
         auto main = table["main"];
 
         if (!main) {
-            return std::unexpected(config_error(path, "Missing '[main]' table"));
+            return std::unexpected(config_error(path, "missing '[main]' table"));
         }
 
         if (!main.is_table()) {
@@ -63,7 +63,7 @@ struct config {
         auto input = main["input"];
 
         if (!input) {
-            return std::unexpected(config_error(path, "Missing 'input' value"));
+            return std::unexpected(config_error(path, "missing 'input' value"));
         }
 
         if (!input.is_value()) {
@@ -80,7 +80,7 @@ struct config {
 
         if (!fs::exists(input_value)) {
             return std::unexpected(
-                config_error(path, "Specified 'input' path does not exist")
+                config_error(path, "specified 'input' path does not exist")
             );
         }
 
@@ -132,7 +132,7 @@ struct config {
 
         if (!fs::exists(config.output) && !fs::create_directories(config.output)) {
             return std::unexpected(
-                config_error(path, "Could not create 'output' directory")
+                config_error(path, "could not create 'output' directory")
             );
         }
 

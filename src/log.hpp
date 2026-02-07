@@ -37,8 +37,8 @@ auto set_log_level(const std::string_view& level) -> std::expected<void, log_err
         spdlog::set_level(spdlog::level::trace);
     } else {
         return std::unexpected(log_error(std::format(
-            "Unexpected log level specified: '{}'. \
-Valid level: (trace,debug,info,warn,err,critical,off)", normalized_level)));
+            "unexpected log level specified: '{}'. \
+Valid levels: (trace,debug,info,warn,err,critical,off)", normalized_level)));
     }
 
     return {};

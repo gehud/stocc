@@ -13,9 +13,19 @@ namespace po = boost::program_options;
 
 namespace stocc {
 
+class options_error : public std::runtime_error {
+public:
+    std::string allowed_options;
+
+    options_error(const std::string& what, std::string&& allowed_options) :
+        std::runtime_error(std::format("Options error: {}", what)),
+        allowed_options(std::move(allowed_options))
+    {}
+};
+
 class options {
 public:
-    static std::expected<options, std::runtime_error> parse(int argc, char* argv[]) {
+    static std::expected<options, options_error> parse(int argc, char* argv[]) {
         options options;
 
         options._description.add_options()
@@ -35,7 +45,7 @@ public:
             po::store(po::parse_command_line(argc, argv, options._description), vm);
             po::notify(vm);
         } catch (const po::error& error) {
-            return std::unexpected(std::runtime_error(error.what()));
+            return std::unexpected(options_error(error.what(), options.description()));
         }
 
         options._help = vm.count("help");
