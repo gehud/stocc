@@ -17,7 +17,7 @@ int main(int argc, char* argv[]) {
     const auto& options = options_parse_result.value();
 
     if (options.help()) {
-        std::println(stderr, "{}", options.description());
+        std::println(stdout, "{}", options.description());
         return EXIT_SUCCESS;
     }
 
