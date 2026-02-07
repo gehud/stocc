@@ -21,8 +21,8 @@ public:
 auto set_log_level(const std::string_view& level) -> std::expected<void, log_error> {
     auto normalized_level = algo::trim_copy(level);
 
-    if (normalized_level == "trace") {
-        spdlog::set_level(spdlog::level::trace);
+    if (normalized_level == "off") {
+        spdlog::set_level(spdlog::level::off);
     } else if (normalized_level == "debug") {
         spdlog::set_level(spdlog::level::debug);
     } else if (normalized_level == "info") {
@@ -33,8 +33,8 @@ auto set_log_level(const std::string_view& level) -> std::expected<void, log_err
         spdlog::set_level(spdlog::level::err);
     } else if (normalized_level == "critical") {
         spdlog::set_level(spdlog::level::critical);
-    } else if (normalized_level == "off") {
-        spdlog::set_level(spdlog::level::off);
+    } else if (normalized_level == "trace") {
+        spdlog::set_level(spdlog::level::trace);
     } else {
         return std::unexpected(log_error(std::format(
             "Unexpected log level specified: '{}'. \
