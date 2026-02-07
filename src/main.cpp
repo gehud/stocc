@@ -4,15 +4,13 @@
 #include <print>
 #include <string>
 
-#include <boost/accumulators/accumulators.hpp>
-#include <boost/accumulators/statistics.hpp>
 #include <boost/program_options.hpp>
 
 #include <config.hpp>
-#include <csv.hpp>
+#include <dataset.hpp>
 #include <log.hpp>
+#include <stats.hpp>
 
-namespace accum = boost::accumulators;
 namespace fs = std::filesystem;
 namespace po = boost::program_options;
 
@@ -58,55 +56,23 @@ auto main(int argc, char* argv[]) -> int {
 
     LOG_INFO("Loading config at path: {}", config_path.string());
 
-    auto load_config_result = stocc::load_config(config_path);
-    if (!load_config_result.has_value()) {
-        print_exception(load_config_result.error());
+    auto config_load_result = stocc::config::load(config_path);
+    if (!config_load_result.has_value()) {
+        print_exception(config_load_result.error());
         return EXIT_FAILURE;
     }
 
-    const auto& config = load_config_result.value();
+    const auto& config = config_load_result.value();
 
     LOG_INFO("Loaded config: {}", config);
 
-    auto collect_datasets_result = stocc::datasets::collect(config);
-    if (!collect_datasets_result.has_value()) {
-        print_exception(collect_datasets_result.error());
+    auto datasets_collect_result = stocc::datasets::collect(config);
+    if (!datasets_collect_result.has_value()) {
+        print_exception(datasets_collect_result.error());
         return EXIT_FAILURE;
     }
 
-    auto& datasets = collect_datasets_result.value();
-
-    auto output_file_path = config.output;
-    output_file_path.append("median_result.csv");
-    std::ofstream output_file(output_file_path);
-    std::println(output_file, "receive_ts;price_median");
-
-    accum::accumulator_set<
-        double,
-        accum::stats<accum::tag::median(accum::with_p_square_quantile)>
-    > stats;
-
-    auto last_median = std::numeric_limits<double_t>::infinity();
-    size_t index = 0;
-    for (const auto& entry : datasets) {
-        stats(entry.price);
-
-        double_t median = 0;
-        if (index == 0) {
-            median = entry.price;
-        } else if (index == 1) {
-            median = (entry.price + last_median) / 2;
-        } else {
-            median = accum::median(stats);
-        }
-
-        if (median != last_median) {
-            last_median = median;
-            std::println(output_file, "{};{}", entry.receive_ts, last_median);
-        }
-
-        ++index;
-    }
+    stocc::print_stats(config, std::move(datasets_collect_result.value()));
 
     return EXIT_SUCCESS;
 }

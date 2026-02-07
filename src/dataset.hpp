@@ -17,23 +17,29 @@ namespace fs = std::filesystem;
 
 namespace stocc {
 
-class csv_error : public std::runtime_error {
+class dataset_error : public std::runtime_error {
 public:
-    csv_error(const std::string& what)
+    dataset_error(const std::string& what)
         : std::runtime_error(std::format("Csv error: {}", what)) {}
 
-    csv_error(const fs::path& path, const std::string& what)
+    dataset_error(const fs::path& path, const std::string& what)
         : std::runtime_error(std::format("Csv error (at '{}'): {}", path.string(), what)) {}
 };
 
-struct csv_row {
+struct dataset_pair {
     uint64_t receive_ts;
     double_t price;
 };
 
-class csv {
+class dataset {
 public:
-    csv(const fs::path& path) {
+    static constexpr const char* file_extension = ".csv";
+
+    dataset(dataset&& other) = default;
+
+    dataset(const dataset& other) = delete;
+
+    dataset(const fs::path& path) {
         std::ifstream stream(path);
 
         std::string line;
@@ -57,16 +63,16 @@ public:
         }
 
         if (_receive_ts_index == std::numeric_limits<size_t>::max()) {
-            throw csv_error("Missing 'receive_ts' column");
+            throw dataset_error(path, "Missing 'receive_ts' field at line 1");
         }
 
         if (_price_index == std::numeric_limits<size_t>::max()) {
-            throw csv_error("Missing 'price' column");
+            throw dataset_error(path, "Missing 'price' field at line 1");
         }
 
         _stream.emplace(std::move(stream));
 
-        next();
+        ++(*this);
     }
 
     void next() {
@@ -77,20 +83,33 @@ public:
         }
     }
 
-    std::optional<csv_row> operator*() const {
-        return _stream ? std::optional(_row) : std::nullopt;
+    dataset& operator++() {
+        next();
+        return *this;
+    }
+
+    std::optional<dataset_pair> current() const {
+        return _stream ? std::optional(_pair) : std::nullopt;
+    }
+
+    std::optional<dataset_pair> operator*() const {
+        return current();
+    }
+
+    bool has_pair() const {
+        return (bool)_stream;
     }
 
     explicit operator bool() const {
-        return (bool)_stream;
+        return has_pair();
     }
 private:
     size_t _receive_ts_index;
     size_t _price_index;
     std::optional<std::ifstream> _stream;
-    csv_row _row;
+    dataset_pair _pair;
 
-    auto read_line() -> bool {
+    bool read_line() {
         if (!_stream) {
             return false;
         }
@@ -104,9 +123,9 @@ private:
         size_t index = 0;
         while (std::getline(line_stream, cell, ';')) {
             if (index == _receive_ts_index) {
-                _row.receive_ts = std::stoul(cell);
+                _pair.receive_ts = std::stoul(cell);
             } else if (index == _price_index) {
-                _row.price = std::stod(cell);
+                _pair.price = std::stod(cell);
             }
 
             ++index;
@@ -120,7 +139,7 @@ struct datasets {
 private:
     struct entry {
         size_t stream_id;
-        csv_row value;
+        dataset_pair value;
 
         bool operator>(const entry& other) const {
             return value.receive_ts > other.value.receive_ts;
@@ -128,13 +147,13 @@ private:
     };
 
     struct data {
-        std::vector<csv> files;
+        std::vector<dataset> files;
         std::priority_queue<entry, std::vector<entry>, std::greater<entry>> queue;
     };
 public:
     class iterator {
     public:
-        using value_type = csv_row;
+        using value_type = dataset_pair;
         using difference_type = std::ptrdiff_t;
         using pointer = const value_type*;
         using reference = const value_type&;
@@ -151,9 +170,7 @@ public:
         iterator& operator++() {
             _data->queue.pop();
 
-            auto& file = _data->files[_current.stream_id];
-            file.next();
-            auto value = *file;
+            auto value = *++_data->files[_current.stream_id];
             if (value) {
                 _data->queue.emplace(_current.stream_id, *value);
             }
@@ -201,23 +218,31 @@ public:
 
     datasets(const datasets& other) = delete;
 
-    static std::expected<datasets, csv_error> collect(const config& config) {
+    static std::expected<datasets, dataset_error> collect(const config& config) {
         datasets datasets;
 
         for (const auto& entry : fs::directory_iterator(config.input)) {
+            if (!entry.is_regular_file()) {
+                continue;
+            }
+
             auto path = entry.path();
-            if (config.is_file_matches_mask(path)) {
+
+            if (path.extension() != dataset::file_extension) {
+                continue;
+            }
+
+            if (config.is_filename_suitable(path.filename())) {
                 try {
                     datasets._data.files.emplace_back(path);
-                } catch (const csv_error& error) {
-                    return std::unexpected(csv_error(error.what()));
+                } catch (const dataset_error& error) {
+                    return std::unexpected(dataset_error(error.what()));
                 }
             }
         }
 
         for (size_t i = 0; i < datasets._data.files.size(); ++i) {
-            auto& file = datasets._data.files[i];
-            auto first = *file;
+            auto first = *datasets._data.files[i];
 
             if (first) {
                 datasets._data.queue.emplace(i, *first);
