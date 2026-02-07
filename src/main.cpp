@@ -64,47 +64,49 @@ auto main(int argc, char* argv[]) -> int {
         return EXIT_FAILURE;
     }
 
-    auto config = load_config_result.value();
+    const auto& config = load_config_result.value();
 
     LOG_INFO("Loaded config: {}", config);
 
-    auto collect_prices_result = stocc::collect_prices(config);
-    if (!collect_prices_result.has_value()) {
-        print_exception(collect_prices_result.error());
+    auto collect_datasets_result = stocc::datasets::collect(config);
+    if (!collect_datasets_result.has_value()) {
+        print_exception(collect_datasets_result.error());
         return EXIT_FAILURE;
     }
+
+    auto& datasets = collect_datasets_result.value();
 
     auto output_file_path = config.output;
     output_file_path.append("median_result.csv");
     std::ofstream output_file(output_file_path);
     std::println(output_file, "receive_ts;price_median");
 
-    // accum::accumulator_set<
-    //     double,
-    //     accum::stats<accum::tag::median(accum::with_p_square_quantile)>
-    // > stats;
+    accum::accumulator_set<
+        double,
+        accum::stats<accum::tag::median(accum::with_p_square_quantile)>
+    > stats;
 
-    // auto last_median = std::numeric_limits<double_t>::infinity();
-    // size_t index = 0;
-    // for (const auto& pair : prices) {
-    //     stats(pair.second);
+    auto last_median = std::numeric_limits<double_t>::infinity();
+    size_t index = 0;
+    for (const auto& entry : datasets) {
+        stats(entry.price);
 
-    //     double_t median = 0;
-    //     if (index == 0) {
-    //         median = pair.second;
-    //     } else if (index == 1) {
-    //         median = (pair.second + last_median) / 2;
-    //     } else {
-    //         median = accum::median(stats);
-    //     }
+        double_t median = 0;
+        if (index == 0) {
+            median = entry.price;
+        } else if (index == 1) {
+            median = (entry.price + last_median) / 2;
+        } else {
+            median = accum::median(stats);
+        }
 
-    //     if (median != last_median) {
-    //         last_median = median;
-    //         std::println(output_file, "{};{}", pair.first, last_median);
-    //     }
+        if (median != last_median) {
+            last_median = median;
+            std::println(output_file, "{};{}", entry.receive_ts, last_median);
+        }
 
-    //     ++index;
-    // }
+        ++index;
+    }
 
     return EXIT_SUCCESS;
 }

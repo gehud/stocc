@@ -65,17 +65,16 @@ public:
         }
 
         _stream.emplace(std::move(stream));
-        ++(*this);
+
+        next();
     }
 
-    csv& operator++() {
+    void next() {
         if (_stream) {
             if (!read_line()) {
                 _stream.reset();
             }
         }
-
-        return *this;
     }
 
     std::optional<csv_row> operator*() const {
@@ -117,20 +116,8 @@ private:
     }
 };
 
-auto collect_prices(const config& config) -> std::expected<void, csv_error> {
-    std::vector<csv> files;
-
-    for (const auto& entry : fs::directory_iterator(config.input)) {
-        auto path = entry.path();
-        if (config.is_file_matches_mask(path)) {
-            try {
-                files.emplace_back(path);
-            } catch (const csv_error& error) {
-                return std::unexpected(csv_error(error.what()));
-            }
-        }
-    }
-
+struct datasets {
+private:
     struct entry {
         size_t stream_id;
         csv_row value;
@@ -140,29 +127,117 @@ auto collect_prices(const config& config) -> std::expected<void, csv_error> {
         }
     };
 
-    std::priority_queue<entry, std::vector<entry>, std::greater<entry>> queue;
+    struct data {
+        std::vector<csv> files;
+        std::priority_queue<entry, std::vector<entry>, std::greater<entry>> queue;
+    };
+public:
+    class iterator {
+    public:
+        using value_type = csv_row;
+        using difference_type = std::ptrdiff_t;
+        using pointer = const value_type*;
+        using reference = const value_type&;
+        using iterator_category = std::input_iterator_tag;
 
-    for (size_t i = 0; i < files.size(); ++i) {
-        auto first = *files[i];
-
-        if (first) {
-            queue.emplace(i, *first);
+        reference operator*() const {
+            return _current.value;
         }
+
+        pointer operator->() const {
+            return &_current.value;
+        }
+
+        iterator& operator++() {
+            _data->queue.pop();
+
+            auto& file = _data->files[_current.stream_id];
+            file.next();
+            auto value = *file;
+            if (value) {
+                _data->queue.emplace(_current.stream_id, *value);
+            }
+
+            if (_data->queue.empty()) {
+                _data = nullptr;
+            } else {
+                _current = _data->queue.top();
+            }
+
+            return *this;
+        }
+
+        iterator operator++(int) {
+            auto tmp = *this;
+            ++*this;
+            return tmp;
+        }
+
+        bool operator==(const iterator& other) const {
+            return _data == other._data;
+        }
+
+        bool operator!=(const iterator& other) const {
+            return !(*this == other);
+        }
+    private:
+        data* _data;
+        entry _current;
+
+        iterator() : _data(nullptr) {}
+
+        iterator(data& data) : _data(&data) {
+            if (_data->queue.empty()) {
+                _data = nullptr;
+            } else {
+                _current = _data->queue.top();
+            }
+        }
+
+        friend class datasets;
+    };
+
+    datasets(datasets&& other) = default;
+
+    datasets(const datasets& other) = delete;
+
+    static std::expected<datasets, csv_error> collect(const config& config) {
+        datasets datasets;
+
+        for (const auto& entry : fs::directory_iterator(config.input)) {
+            auto path = entry.path();
+            if (config.is_file_matches_mask(path)) {
+                try {
+                    datasets._data.files.emplace_back(path);
+                } catch (const csv_error& error) {
+                    return std::unexpected(csv_error(error.what()));
+                }
+            }
+        }
+
+        for (size_t i = 0; i < datasets._data.files.size(); ++i) {
+            auto& file = datasets._data.files[i];
+            auto first = *file;
+
+            if (first) {
+                datasets._data.queue.emplace(i, *first);
+            }
+        }
+
+        return datasets;
     }
 
-    while (!queue.empty()) {
-        auto current = queue.top();
-        queue.pop();
-
-        LOG_INFO("{} - {}", current.value.receive_ts, current.value.price);
-
-        auto value = *++files[current.stream_id];
-        if (value) {
-            queue.emplace(current.stream_id, *value);
-        }
+    iterator begin() {
+        return iterator(_data);
     }
 
-    return {};
-}
+    iterator end() {
+        return iterator();
+    }
+private:
+    datasets() = default;
+
+    data _data;
+};
 
 } // namespace sotcc
