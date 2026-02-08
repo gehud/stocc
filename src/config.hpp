@@ -10,15 +10,18 @@
 #include <boost/algorithm/string.hpp>
 #include <toml++/toml.hpp>
 
-namespace fs = std::filesystem;
 namespace algo = boost::algorithm;
+namespace fs = std::filesystem;
 
 namespace stocc {
 
 class config_error : public std::runtime_error {
 public:
-    config_error(const fs::path& path, const std::string& what)
-        : std::runtime_error(std::format("Config error (at '{}'): {}", path.string(), what)) {}
+    config_error(const fs::path& path, const std::string& what) :
+        std::runtime_error(
+            std::format("Config error (at '{}'): {}", path.string(), what)
+        )
+    {}
 };
 
 struct config {
@@ -26,7 +29,9 @@ struct config {
     fs::path output;
     std::vector<std::string> filename_mask;
 
-    bool is_filename_suitable(const std::string& filename) const {
+    constexpr bool is_filename_suitable(
+        const std::string& filename
+    ) const noexcept {
         if (filename_mask.empty()) {
             return true;
         }
@@ -52,28 +57,38 @@ struct config {
         auto main = table["main"];
 
         if (!main) {
-            return std::unexpected(config_error(path, "missing '[main]' table"));
+            return std::unexpected(
+                config_error(path, "missing '[main]' table")
+            );
         }
 
         if (!main.is_table()) {
-            return std::unexpected(config_error(path, "'[main]' must be a table"));
+            return std::unexpected(
+                config_error(path, "'[main]' must be a table")
+            );
         }
 
         std::string input_value;
         auto input = main["input"];
 
         if (!input) {
-            return std::unexpected(config_error(path, "missing 'input' value"));
+            return std::unexpected(
+                config_error(path, "missing 'input' value")
+            );
         }
 
         if (!input.is_value()) {
-            return std::unexpected(config_error(path, "'input' must be a value"));
+            return std::unexpected(
+                config_error(path, "'input' must be a value")
+            );
         }
 
         auto new_input_value = input.value<std::string>();
 
         if (!new_input_value) {
-            return std::unexpected(config_error(path, "'input' must be a string"));
+            return std::unexpected(
+                config_error(path, "'input' must be a string")
+            );
         }
 
         input_value = *new_input_value;
@@ -111,8 +126,8 @@ struct config {
                 );
             }
 
-            for (const auto& item : *new_filename_mask) {
-                auto filter = item.as_string();
+            for (const auto& node : *new_filename_mask) {
+                auto filter = node.as_string();
 
                 if (!filter) {
                     return std::unexpected(
@@ -120,7 +135,7 @@ struct config {
                     );
                 }
 
-                filename_mask_value.emplace_back(*filter);
+                filename_mask_value.emplace_back(std::move(*filter));
             }
         }
 

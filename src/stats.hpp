@@ -8,8 +8,8 @@
 #include <boost/accumulators/accumulators.hpp>
 #include <boost/accumulators/statistics.hpp>
 
-#include <dataset.hpp>
 #include <config.hpp>
+#include <dataset.hpp>
 
 namespace accum = boost::accumulators;
 namespace fs = std::filesystem;
@@ -51,9 +51,9 @@ void print_stats(const config& config, datasets&& datasets) {
         ++index;
     }
 
-    LOG_INFO("Records read: {}", index);
-    LOG_INFO("Recorded changes in median: {}", median_mutations);
-    LOG_INFO("Result saved: '{}'", output_file_path.string());
+    STOCC_LOG_INFO("Records read: {}", index);
+    STOCC_LOG_INFO("Recorded changes in median: {}", median_mutations);
+    STOCC_LOG_INFO("Result saved: '{}'", output_file_path.string());
 }
 
 } // namespace stocc

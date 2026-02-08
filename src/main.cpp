@@ -28,8 +28,8 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
-    LOG_INFO("Launching 'Stocc' v{}", PROJECT_VERSION);
-    LOG_INFO("Reading config: {}", options.config_path().string());
+    STOCC_LOG_INFO("Launching 'Stocc' v{}", PROJECT_VERSION);
+    STOCC_LOG_INFO("Reading config: {}", options.config_path().string());
 
     auto config_load_result = stocc::config::load(options.config_path());
     if (!config_load_result.has_value()) {
@@ -39,7 +39,7 @@ int main(int argc, char* argv[]) {
 
     const auto& config = config_load_result.value();
 
-    LOG_INFO("Config: {}", config);
+    STOCC_LOG_INFO("Config: {}", config);
 
     auto datasets_collect_result = stocc::datasets::collect(config);
     if (!datasets_collect_result.has_value()) {
@@ -49,7 +49,7 @@ int main(int argc, char* argv[]) {
 
     stocc::print_stats(config, std::move(datasets_collect_result.value()));
 
-    LOG_INFO("Finish");
+    STOCC_LOG_INFO("Finish");
 
     return EXIT_SUCCESS;
 }

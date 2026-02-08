@@ -3,12 +3,12 @@
 #include <expected>
 #include <filesystem>
 #include <functional>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <queue>
 #include <ranges>
 #include <string>
-#include <iostream>
 
 #include <config.hpp>
 #include <log.hpp>
@@ -241,7 +241,7 @@ public:
             }
         }
 
-        LOG_INFO("Files found: {}", datasets._data.files.size());
+        STOCC_LOG_INFO("Files found: {}", datasets._data.files.size());
 
         for (size_t i = 0; i < datasets._data.files.size(); ++i) {
             auto first = *datasets._data.files[i];
