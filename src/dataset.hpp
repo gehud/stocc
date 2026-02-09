@@ -23,7 +23,7 @@ public:
         : std::runtime_error(std::format("Dataset error: {}", what)) {}
 
     dataset_error(const fs::path& path, const std::string& what)
-        : std::runtime_error(std::format("Dataset error (at '{}'): {}", path.string(), what)) {}
+        : std::runtime_error(std::format("Dataset error (at {}): {}", path.string(), what)) {}
 };
 
 struct dataset_record {

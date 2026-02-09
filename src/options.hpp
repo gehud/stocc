@@ -8,6 +8,8 @@
 
 #include <boost/program_options.hpp>
 
+#include <config.hpp>
+
 namespace fs = std::filesystem;
 namespace po = boost::program_options;
 
@@ -78,7 +80,7 @@ private:
 
     options() :
         _help(false),
-        _config_path("./config.toml"),
+        _config_path(config::default_path),
         _log_level("off"),
         _description(
             "Allowed options",

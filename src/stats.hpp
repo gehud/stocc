@@ -17,8 +17,7 @@ namespace fs = std::filesystem;
 namespace stocc {
 
 void print_stats(const config& config, datasets&& datasets) {
-    auto output_file_path = config.output;
-    output_file_path.append("median_result.csv");
+    auto output_file_path = config.output / "median_result.csv";
     std::ofstream output_file(output_file_path);
     std::println(output_file, "receive_ts;price_median");
 
