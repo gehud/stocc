@@ -38,16 +38,28 @@ public:
             po::value(&options._log_level),
             "Specify log level (trace,debug,info,warn,err,critical,off)");
 
-        options._description.add_options()
-            ("config,c", po::value(&options._config_path), "Specify config path");
+        options._description.add_options()(
+            "config,c",
+            po::value(&options._config_path),
+            "Specify config path");
 
         po::variables_map vm;
 
         try {
-            po::store(po::parse_command_line(argc, argv, options._description), vm);
+            po::store(
+                po::parse_command_line(
+                    argc,
+                    argv,
+                    options._description
+                ),
+                vm
+            );
             po::notify(vm);
         } catch (const po::error& error) {
-            return std::unexpected(options_error(error.what(), options.description()));
+            return std::unexpected(options_error(
+                error.what(),
+                options.description()
+            ));
         }
 
         options._help = vm.count("help");

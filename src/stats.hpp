@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <limits>
 #include <print>
 
@@ -22,25 +23,15 @@ void print_stats(const config& config, datasets&& datasets) {
     std::println(output_file, "receive_ts;price_median");
 
     accum::accumulator_set<
-        double,
+        double_t,
         accum::stats<accum::tag::median(accum::with_p_square_quantile)>
     > stats;
 
     auto last_median = std::numeric_limits<double_t>::infinity();
     size_t index = 0;
     size_t median_mutations = 0;
-    for (const auto& record : datasets) {
-        stats(record.price);
 
-        double_t median = 0;
-        if (index == 0) {
-            median = record.price;
-        } else if (index == 1) {
-            median = (record.price + last_median) / 2;
-        } else {
-            median = accum::median(stats);
-        }
-
+    auto visit = [&](const dataset_record& record, double_t median) {
         if (median != last_median) {
             last_median = median;
             std::println(output_file, "{};{}", record.receive_ts, last_median);
@@ -48,6 +39,32 @@ void print_stats(const config& config, datasets&& datasets) {
         }
 
         ++index;
+    };
+
+    auto it = datasets.begin();
+    auto end = datasets.end();
+
+    if (it != end) {
+        const auto& record = *it;
+        stats(record.price);
+        auto median = record.price;
+        visit(record, median);
+        ++it;
+    }
+
+    if (it != end) {
+        const auto& record = *it;
+        stats(record.price);
+        auto median = (record.price + last_median) / 2;
+        visit(record, median);
+        ++it;
+    }
+
+    for (it; it != end; ++it) {
+        const auto& record = *it;
+        stats(record.price);
+        auto median = accum::median(stats);
+        visit(record, median);
     }
 
     STOCC_LOG_INFO("Records read: {}", index);
