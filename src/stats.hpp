@@ -1,5 +1,6 @@
 #pragma once
 
+#include <expected>
 #include <filesystem>
 #include <fstream>
 #include <limits>
@@ -16,7 +17,7 @@ namespace fs = std::filesystem;
 
 namespace stocc {
 
-void print_stats(const config& config, datasets&& datasets) {
+std::expected<void, dataset_error> print_stats(const config& config, datasets&& datasets) {
     auto output_file_path = config.output / "median_result.csv";
     std::ofstream output_file(output_file_path);
     std::println(output_file, "receive_ts;price_median");
@@ -29,7 +30,13 @@ void print_stats(const config& config, datasets&& datasets) {
     auto last_median = std::numeric_limits<double_t>::infinity();
     size_t index = 0;
     size_t median_mutations = 0;
-    for (const auto& record : datasets) {
+    for (const auto& record_fetch_result : datasets) {
+        if (!record_fetch_result.has_value()) {
+            return std::unexpected(record_fetch_result.error());
+        }
+
+        const auto& record = record_fetch_result.value();
+
         stats(record.price);
 
         double_t median = 0;
@@ -53,6 +60,8 @@ void print_stats(const config& config, datasets&& datasets) {
     STOCC_LOG_INFO("Records read: {}", index);
     STOCC_LOG_INFO("Recorded changes in median: {}", median_mutations);
     STOCC_LOG_INFO("Result saved: '{}'", output_file_path.string());
+
+    return {};
 }
 
 } // namespace stocc

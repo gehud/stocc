@@ -1,7 +1,9 @@
 #pragma once
 
+#include <cstring>
 #include <expected>
 #include <filesystem>
+#include <format>
 #include <functional>
 #include <iostream>
 #include <limits>
@@ -22,8 +24,20 @@ public:
     dataset_error(const std::string& what)
         : std::runtime_error(std::format("Dataset error: {}", what)) {}
 
-    dataset_error(const fs::path& path, const std::string& what)
-        : std::runtime_error(std::format("Dataset error (at {}): {}", path.string(), what)) {}
+    dataset_error(
+        const fs::path& path,
+        int line,
+        int column,
+        const std::string& what
+    )
+        : std::runtime_error(std::format(
+            "Dataset error (at {}:{}:{}): {}",
+            path.string(),
+            line,
+            column,
+            what
+        ))
+    {}
 };
 
 struct dataset_record {
@@ -39,8 +53,16 @@ public:
 
     dataset(const dataset& other) = delete;
 
-    dataset(const fs::path& path) {
+    static std::expected<dataset, dataset_error> load(const fs::path& path) {
         std::ifstream stream(path);
+
+        if (!stream.is_open()) {
+            return std::unexpected(dataset_error(std::format(
+                "failed to open file ('{}'): {}",
+                path.string(),
+                std::strerror(errno)
+            )));
+        }
 
         std::string line;
         std::getline(stream, line);
@@ -48,60 +70,63 @@ public:
         std::stringstream line_stream(line);
         std::string cell;
 
-        _receive_ts_index = std::numeric_limits<size_t>::max();
-        _price_index = std::numeric_limits<size_t>::max();
+        auto receive_ts_index = std::numeric_limits<size_t>::max();
+        auto price_index = std::numeric_limits<size_t>::max();
 
         size_t index = 0;
         while (std::getline(line_stream, cell, ';')) {
             if (cell == "receive_ts") {
-                _receive_ts_index = index;
+                receive_ts_index = index;
             } else if (cell == "price") {
-                _price_index = index;
+                price_index = index;
             }
 
             ++index;
         }
 
-        if (_receive_ts_index == std::numeric_limits<size_t>::max()) {
-            throw dataset_error(path, "missing 'receive_ts' field at line 1");
+        if (receive_ts_index == std::numeric_limits<size_t>::max()) {
+            return std::unexpected(dataset_error(path, 1, 1, "missing 'receive_ts' field"));
         }
 
-        if (_price_index == std::numeric_limits<size_t>::max()) {
-            throw dataset_error(path, "missing 'price' field at line 1");
+        if (price_index == std::numeric_limits<size_t>::max()) {
+            return std::unexpected(dataset_error(path, 1, 1, "missing 'price' field"));
         }
 
-        _stream.emplace(std::move(stream));
+        dataset dataset;
+        dataset._receive_ts_index = receive_ts_index;
+        dataset._price_index = price_index;
+        dataset._stream = std::move(stream);
 
-        ++(*this);
+        auto next_result = dataset.next();
+
+        if (!next_result.has_value()) {
+            return std::unexpected(next_result.error());
+        }
+
+        return dataset;
     }
 
-    void next() {
-        if (_stream) {
-            if (!read_line()) {
-                _stream.reset();
-            }
+    std::expected<void, dataset_error> next() {
+        if (!_stream) {
+            return {};
         }
-    }
 
-    dataset& operator++() {
-        next();
-        return *this;
+        auto read_line_result = read_line();
+
+        if (!read_line_result.has_value()) {
+            _stream.reset();
+            return std::unexpected(read_line_result.error());
+        }
+
+        if (!read_line_result.value()) {
+            _stream.reset();
+        }
+
+        return {};
     }
 
     std::optional<dataset_record> current() const {
         return _stream ? std::optional(_record) : std::nullopt;
-    }
-
-    std::optional<dataset_record> operator*() const {
-        return current();
-    }
-
-    bool has_pair() const {
-        return (bool)_stream;
-    }
-
-    explicit operator bool() const {
-        return has_pair();
     }
 private:
     size_t _receive_ts_index;
@@ -109,7 +134,9 @@ private:
     std::optional<std::ifstream> _stream;
     dataset_record _record;
 
-    bool read_line() {
+    dataset() = default;
+
+    std::expected<bool, dataset_error> read_line() {
         if (!_stream) {
             return false;
         }
@@ -153,26 +180,33 @@ private:
 public:
     class iterator {
     public:
-        using value_type = dataset_record;
+        using value_type = std::expected<dataset_record, dataset_error>;
         using difference_type = std::ptrdiff_t;
-        using pointer = const value_type*;
-        using reference = const value_type&;
         using iterator_category = std::input_iterator_tag;
 
-        reference operator*() const {
-            return _current.record;
-        }
-
-        pointer operator->() const {
-            return &_current.record;
+        value_type operator*() const {
+            if (_current.has_value()) {
+                return _current.value().record;
+            } else {
+                return std::unexpected(_current.error());
+            }
         }
 
         iterator& operator++() {
             _data->queue.pop();
 
-            auto record = *++_data->files[_current.stream_id];
+            auto& file = _data->files[_current.value().stream_id];
+            auto next_result = file.next();
+
+            if (!next_result.has_value()) {
+                _data = nullptr;
+                _current = std::unexpected(next_result.error());
+                return *this;
+            }
+
+            auto record = file.current();
             if (record) {
-                _data->queue.emplace(_current.stream_id, *record);
+                _data->queue.emplace(_current.value().stream_id, *record);
             }
 
             if (_data->queue.empty()) {
@@ -199,7 +233,7 @@ public:
         }
     private:
         data* _data;
-        entry _current;
+        std::expected<entry, dataset_error> _current;
 
         iterator() : _data(nullptr) {}
 
@@ -221,7 +255,19 @@ public:
     static std::expected<datasets, dataset_error> collect(const config& config) {
         datasets datasets;
 
-        for (const auto& entry : fs::directory_iterator(config.input)) {
+        std::error_code error_code;
+
+        fs::directory_iterator directory_iterator(config.input, error_code);
+
+        if (error_code) {
+            return std::unexpected(dataset_error(std::format(
+                "failed to read directory ('{}'): {}",
+                config.input.string(),
+                error_code.message()
+            )));
+        }
+
+        for (const auto& entry : directory_iterator) {
             if (!entry.is_regular_file()) {
                 continue;
             }
@@ -233,18 +279,22 @@ public:
             }
 
             if (config.is_filename_suitable(path.filename())) {
-                try {
-                    datasets._data.files.emplace_back(path);
-                } catch (const dataset_error& error) {
-                    return std::unexpected(dataset_error(error.what()));
+                auto dataset_load_result = dataset::load(path);
+
+                if (!dataset_load_result.has_value()) {
+                    return std::unexpected(dataset_load_result.error());
                 }
+
+                datasets._data.files.emplace_back(
+                    std::move(dataset_load_result.value())
+                );
             }
         }
 
         STOCC_LOG_INFO("Files found: {}", datasets._data.files.size());
 
         for (size_t i = 0; i < datasets._data.files.size(); ++i) {
-            auto first = *datasets._data.files[i];
+            auto first = datasets._data.files[i].current();
 
             if (first) {
                 datasets._data.queue.emplace(i, *first);

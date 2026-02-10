@@ -46,7 +46,15 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
-    stocc::print_stats(config, std::move(datasets_collect_result.value()));
+    auto print_stats_result = stocc::print_stats(
+        config,
+        std::move(datasets_collect_result.value())
+    );
+
+    if (!print_stats_result.has_value()) {
+        std::println(stderr, "{}", print_stats_result.error().what());
+        return EXIT_FAILURE;
+    }
 
     STOCC_LOG_INFO("Finish");
 
