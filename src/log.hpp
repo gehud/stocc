@@ -18,7 +18,7 @@ public:
         : std::runtime_error(std::format("Log error: {}", what)) {}
 };
 
-std::expected<void, log_error> set_log_level(const std::string_view& level) {
+auto set_log_level(const std::string_view& level) -> std::expected<void, log_error> {
     auto normalized_level = algo::trim_copy(level);
 
     if (normalized_level == "off") {
@@ -37,10 +37,8 @@ std::expected<void, log_error> set_log_level(const std::string_view& level) {
         spdlog::set_level(spdlog::level::trace);
     } else {
         return std::unexpected(log_error(std::format(
-            "unexpected log level specified: '{}'. "
-            "Valid levels: (trace,debug,info,warn,err,critical,off)",
-            normalized_level
-        )));
+            "unexpected log level specified: '{}'. \
+Valid levels: (trace,debug,info,warn,err,critical,off)", normalized_level)));
     }
 
     return {};
