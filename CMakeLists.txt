@@ -6,8 +6,8 @@ project(Stocc
 )
 
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/project.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/project.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/stocc/project.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/stocc/project.hpp"
     @ONLY
 )
 

@@ -11,7 +11,7 @@
 #include <boost/algorithm/string.hpp>
 #include <toml++/toml.hpp>
 
-#include <log.hpp>
+#include "stocc/log.hpp"
 
 namespace algo = boost::algorithm;
 namespace fs = std::filesystem;

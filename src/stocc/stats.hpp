@@ -9,8 +9,8 @@
 #include <boost/accumulators/accumulators.hpp>
 #include <boost/accumulators/statistics.hpp>
 
-#include <config.hpp>
-#include <dataset.hpp>
+#include "stocc/config.hpp"
+#include "stocc/dataset.hpp"
 
 namespace accum = boost::accumulators;
 namespace fs = std::filesystem;

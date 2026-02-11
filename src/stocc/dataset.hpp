@@ -13,8 +13,8 @@
 #include <ranges>
 #include <string>
 
-#include <config.hpp>
-#include <log.hpp>
+#include "stocc/config.hpp"
+#include "stocc/log.hpp"
 
 namespace fs = std::filesystem;
 

@@ -1,11 +1,11 @@
 #include <print>
 
-#include <config.hpp>
-#include <dataset.hpp>
-#include <log.hpp>
-#include <options.hpp>
-#include <project.hpp>
-#include <stats.hpp>
+#include "stocc/config.hpp"
+#include "stocc/dataset.hpp"
+#include "stocc/log.hpp"
+#include "stocc/options.hpp"
+#include "stocc/project.hpp"
+#include "stocc/stats.hpp"
 
 int main(int argc, char* argv[]) {
     auto options_parse_result = stocc::options::parse(argc, argv);
