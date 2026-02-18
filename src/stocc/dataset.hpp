@@ -43,7 +43,14 @@ public:
 
 struct dataset_record {
     uint64_t receive_ts;
-    double_t price;
+    double_t value;
+
+    constexpr dataset_record() = default;
+
+    constexpr dataset_record(uint64_t receive_ts, double_t value) :
+        receive_ts(receive_ts),
+        value(value)
+    {}
 };
 
 class dataset {
@@ -194,7 +201,7 @@ private:
                 auto result = std::from_chars(
                     cell.data(),
                     cell.data() + cell.size(),
-                    _record.price
+                    _record.value
                 );
 
                 if (result.ec != std::errc()) {
@@ -261,6 +268,8 @@ public:
         using difference_type = std::ptrdiff_t;
         using iterator_category = std::input_iterator_tag;
 
+        iterator() : _data(nullptr) {}
+
         value_type operator*() const {
             if (_current.has_value()) {
                 return _current.value().record;
@@ -315,8 +324,6 @@ public:
     private:
         data* _data;
         std::expected<entry, dataset_error> _current;
-
-        iterator() : _data(nullptr) {}
 
         iterator(data& data) : _data(&data) {
             if (_data->queue.empty()) {

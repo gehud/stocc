@@ -113,7 +113,7 @@ struct config {
     fs::path output;
     std::vector<std::string> filename_mask;
 
-    constexpr bool is_filename_suitable(
+    bool is_filename_suitable(
         const std::string& filename
     ) const noexcept {
         if (filename_mask.empty()) {
