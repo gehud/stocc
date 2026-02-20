@@ -5,6 +5,7 @@
 #include <format>
 #include <sstream>
 #include <stdexcept>
+#include <string_view>
 #include <string>
 #include <vector>
 
@@ -107,7 +108,7 @@ public:
 };
 
 struct config {
-    static constexpr const char* default_path = "./config.toml";
+    static constexpr std::string_view default_path = "./config.toml";
 
     fs::path input;
     fs::path output;
@@ -359,7 +360,7 @@ namespace std {
 
 template<>
 struct formatter<stocc::config> {
-    static constexpr const char* config_fmt = R"(
+    static constexpr std::string_view config_fmt = R"(
 {{
     input = {},
     output = {},

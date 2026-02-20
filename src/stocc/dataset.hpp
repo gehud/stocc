@@ -11,6 +11,7 @@
 #include <memory>
 #include <queue>
 #include <ranges>
+#include <string_view>
 #include <string>
 
 #include "stocc/config.hpp"
@@ -55,7 +56,7 @@ struct dataset_record {
 
 class dataset {
 public:
-    static constexpr const char* file_extension = ".csv";
+    static constexpr std::string_view file_extension = ".csv";
 
     dataset(dataset&& other) = default;
 

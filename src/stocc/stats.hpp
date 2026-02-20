@@ -21,24 +21,52 @@ namespace stocc {
 
 namespace metrics {
 
+template<typename T>
+concept tag = requires (T & tag) {
+    [] <typename... Types>(accum::depends_on<Types...>&) {}(tag);
+};
+
 template<typename M>
 concept metric = std::default_initializable<M>
-&& std::derived_from<typename M::tag, accum::depends_on<>>
-&& requires(M& metric, double_t value) {
+&& tag<typename M::tag>
+&& requires(M & metric, double_t value) {
     { M::name } -> std::convertible_to<std::string_view>;
     { metric.collect(value) } -> std::convertible_to<double_t>;
 };
 
-class median {
+template<tag T>
+class metric_base {
 public:
-    using tag = accum::tag::median;
+    using tag = T;
 
+    virtual double_t collect(double_t value) {
+        accumulator()(value);
+        return extractor()(accumulator());
+    }
+protected:
+    using accumulator_set = accum::accumulator_set<double_t, accum::stats<tag>>;
+    using accumulator_extractor = accum::extractor<T>;
+
+    accumulator_set& accumulator() {
+        return _accumulator;
+    }
+
+    accumulator_extractor& extractor() {
+        return _extractor;
+    }
+private:
+    accumulator_set _accumulator;
+    accumulator_extractor _extractor;
+};
+
+class median : public metric_base<accum::tag::median> {
+public:
     static constexpr std::string_view name = "median";
 
     median() : _index(0) {}
 
-    double_t collect(double_t value) {
-        _accumulator(value);
+    double_t collect(double_t value) override {
+        accumulator()(value);
 
         if (_index == 0) {
             ++_index;
@@ -48,13 +76,22 @@ public:
             ++_index;
             return (_first + value) / 2.0;
         } else {
-            return accum::median(_accumulator);
+            return accum::median(accumulator());
         }
     }
 private:
-    accum::accumulator_set<double_t, accum::stats<tag>> _accumulator;
     size_t _index;
     double_t _first;
+};
+
+class mean : public metric_base<accum::tag::mean> {
+public:
+    static constexpr std::string_view name = "mean";
+};
+
+class variance : public metric_base<accum::tag::variance> {
+public:
+    static constexpr std::string_view name = "variance";
 };
 
 } // namespace metrics
@@ -174,7 +211,7 @@ private:
 };
 
 template<metrics::metric M>
-std::expected<void, dataset_error> print_stats(const config& config, datasets&& datasets) {
+std::expected<void, dataset_error> print_metric(const config& config, datasets&& datasets) {
     auto output_file_path = config.output / std::format("{}_result.csv", M::name);
     std::ofstream output_file(output_file_path);
     std::println(output_file, "receive_ts;price_{}", M::name);
