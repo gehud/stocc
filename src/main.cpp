@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
-    auto print_stats_result = stocc::print_stats(
+    auto print_stats_result = stocc::print_stats<stocc::metrics::median>(
         config,
         std::move(datasets_collect_result.value())
     );

@@ -5,6 +5,8 @@
 #include <filesystem>
 #include <fstream>
 #include <print>
+#include <ranges>
+#include <string_view>
 
 #include <boost/accumulators/accumulators.hpp>
 #include <boost/accumulators/statistics.hpp>
@@ -19,24 +21,24 @@ namespace stocc {
 
 namespace metrics {
 
-template<typename T>
-using accumulator = accum::accumulator_set<double_t, accum::stats<T>>;
-
 template<typename M>
 concept metric = std::default_initializable<M>
 && std::derived_from<typename M::tag, accum::depends_on<>>
-&& requires(M& metric, accumulator<typename M::tag>& accumulator, double_t value) {
-    { metric.collect(accumulator, value) } -> std::convertible_to<double_t>;
+&& requires(M& metric, double_t value) {
+    { M::name } -> std::convertible_to<std::string_view>;
+    { metric.collect(value) } -> std::convertible_to<double_t>;
 };
 
 class median {
 public:
     using tag = accum::tag::median;
 
-    constexpr median() : _index(0) {}
+    static constexpr std::string_view name = "median";
 
-    double_t collect(accumulator<tag>& accumulator, double_t value) {
-        accumulator(value);
+    median() : _index(0) {}
+
+    double_t collect(double_t value) {
+        _accumulator(value);
 
         if (_index == 0) {
             ++_index;
@@ -46,10 +48,11 @@ public:
             ++_index;
             return (_first + value) / 2.0;
         } else {
-            return accum::median(accumulator);
+            return accum::median(_accumulator);
         }
     }
 private:
+    accum::accumulator_set<double_t, accum::stats<tag>> _accumulator;
     size_t _index;
     double_t _first;
 };
@@ -58,8 +61,6 @@ private:
 
 template<metrics::metric M>
 class stats {
-private:
-    using accumulator = metrics::accumulator<typename M::tag>;
 public:
     class iterator {
     public:
@@ -67,7 +68,7 @@ public:
         using difference_type = std::ptrdiff_t;
         using iterator_category = std::input_iterator_tag;
 
-        iterator() : _accumulator(nullptr) {}
+        iterator() : _metric(nullptr) {}
 
         value_type operator*() const {
             return _current;
@@ -75,7 +76,7 @@ public:
 
         iterator& operator++() {
             if (!_current.has_value()) {
-                _accumulator = nullptr;
+                _metric = nullptr;
                 return *this;
             }
 
@@ -89,7 +90,7 @@ public:
                 const auto& record = record_fetch_result.value();
                 ++(*_index);
 
-                auto value = _metric->collect(*_accumulator, record.value);
+                auto value = _metric->collect(record.value);
                 if (_last_change != value) {
                     _last_change = value;
                     _current = dataset_record(record.receive_ts, _last_change);
@@ -97,7 +98,7 @@ public:
                 }
             }
 
-            _accumulator = nullptr;
+            _metric = nullptr;
 
             return *this;
         }
@@ -109,7 +110,7 @@ public:
         }
 
         bool operator==(const iterator& other) const {
-            return _accumulator == other._accumulator;
+            return _metric == other._metric;
         }
 
         bool operator!=(const iterator& other) const {
@@ -117,22 +118,20 @@ public:
         }
     private:
         M* _metric;
-        accumulator* _accumulator;
         datasets::iterator _cursor;
         datasets::iterator _end;
         value_type _current;
         size_t* _index;
         double_t _last_change;
 
-        iterator(datasets& datasets, M& metric, accumulator& accumulator, size_t& index) :
+        iterator(datasets& datasets, M& metric, size_t& index) :
             _metric(&metric),
-            _accumulator(&accumulator),
             _cursor(datasets.begin()),
             _end(datasets.end()),
             _index(&index)
         {
             if (_cursor == _end) {
-                _accumulator = nullptr;
+                _metric = nullptr;
                 return;
             }
 
@@ -145,7 +144,7 @@ public:
             const auto& record = record_fetch_result.value();
             ++(*_index);
 
-            _last_change = _metric->collect(*_accumulator, record.value);
+            _last_change = _metric->collect(record.value);
             _current = dataset_record(record.receive_ts, _last_change);
         }
 
@@ -162,7 +161,7 @@ public:
     }
 
     iterator begin() {
-        return iterator(_datasets, _metric, _accumulator, _index);
+        return iterator(_datasets, _metric, _index);
     }
 
     iterator end() {
@@ -171,16 +170,16 @@ public:
 private:
     M _metric;
     datasets _datasets;
-    accumulator _accumulator;
     size_t _index;
 };
 
+template<metrics::metric M>
 std::expected<void, dataset_error> print_stats(const config& config, datasets&& datasets) {
-    auto output_file_path = config.output / "median_result.csv";
+    auto output_file_path = config.output / std::format("{}_result.csv", M::name);
     std::ofstream output_file(output_file_path);
-    std::println(output_file, "receive_ts;price_median");
+    std::println(output_file, "receive_ts;price_{}", M::name);
 
-    stats<metrics::median> stats(std::move(datasets));
+    stats<M> stats(std::move(datasets));
 
     size_t mutations = 0;
     for (const auto& metric_fetch_result : stats) {
@@ -194,7 +193,7 @@ std::expected<void, dataset_error> print_stats(const config& config, datasets&& 
     }
 
     STOCC_LOG_INFO("Records read: {}", stats.index());
-    STOCC_LOG_INFO("Recorded changes in median: {}", mutations);
+    STOCC_LOG_INFO("Recorded changes in {}: {}", M::name, mutations);
     STOCC_LOG_INFO("Result saved: '{}'", output_file_path.string());
 
     return {};
