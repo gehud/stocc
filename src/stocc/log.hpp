@@ -4,6 +4,7 @@
 #include <format>
 #include <stdexcept>
 #include <string_view>
+#include <string>
 
 #include <boost/algorithm/string.hpp>
 #include <spdlog/spdlog.h>
@@ -44,10 +45,10 @@ static std::expected<spdlog::level::level_enum, log_error> parse_log_level(
     )));
 }
 
-std::expected<void, log_error> set_log_level(const std::string_view& level) {
-    auto log_level = algo::trim_copy(level);
+std::expected<void, log_error> set_log_level(const std::string& level) {
+    auto normalized_level = algo::to_lower_copy(algo::trim_copy(level));
 
-    auto parse_level_result = parse_log_level(algo::trim_copy(level));
+    auto parse_level_result = parse_log_level(normalized_level);
     if (!parse_level_result.has_value()) {
         return std::unexpected(parse_level_result.error());
     }

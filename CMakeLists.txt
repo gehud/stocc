@@ -19,7 +19,6 @@ include(FetchContent)
 set(BOOST_INCLUDE_LIBRARIES
     accumulators
     algorithm
-    multiprecision
     program_options
 )
 
@@ -68,7 +67,6 @@ target_include_directories(dependencies INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/sr
 target_link_libraries(dependencies INTERFACE
     Boost::accumulators
     Boost::algorithm
-    Boost::multiprecision
     Boost::program_options
     spdlog::spdlog
     tomlplusplus::tomlplusplus

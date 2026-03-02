@@ -10,15 +10,18 @@
 #include <queue>
 #include <ranges>
 #include <string_view>
+#include <string>
 #include <vector>
 
 #include <boost/accumulators/accumulators.hpp>
 #include <boost/accumulators/statistics.hpp>
+#include <boost/algorithm/string.hpp>
 
 #include "stocc/config.hpp"
 #include "stocc/dataset.hpp"
 
 namespace accum = boost::accumulators;
+namespace algo = boost::algorithm;
 namespace fs = std::filesystem;
 
 namespace boost {
@@ -297,6 +300,30 @@ std::expected<void, dataset_error> print_metric(const config& config, datasets&&
     STOCC_LOG_INFO("Result saved: '{}'", output_file_path.string());
 
     return {};
+}
+
+std::expected<void, dataset_error> print_stats(
+    const std::string& metric,
+    const config& config,
+    datasets&& datasets
+) {
+    auto normalized_metric = algo::to_lower_copy(algo::trim_copy(metric));
+
+    if (normalized_metric == "median") {
+        return print_metric<metrics::median>(config, std::move(datasets));
+    } else if (normalized_metric == "mean") {
+        return print_metric<metrics::mean>(config, std::move(datasets));
+    } else if (normalized_metric == "variance") {
+        return print_metric<metrics::variance>(config, std::move(datasets));
+    } else if (normalized_metric == "deviation") {
+        return print_metric<metrics::deviation>(config, std::move(datasets));
+    }
+
+    return std::unexpected(dataset_error(std::format(
+        "unexpected metric type specified: '{}'. "
+        "Valid types: (median,mean,variance,deviation)",
+        normalized_metric
+    )));
 }
 
 } // namespace stocc

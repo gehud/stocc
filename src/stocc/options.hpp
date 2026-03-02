@@ -32,7 +32,9 @@ public:
         int argc,
         char* argv[]
     ) {
-        po::options_description description;
+        po::options_description description(
+            po::options_description::m_default_line_length * 2.0
+        );
 
         description.add_options()
             ("help,h", "Produce help message");
@@ -47,6 +49,11 @@ public:
 
         description.add_options()
             ("config,c", po::value(&config_path), "Specify config path");
+
+        std::string metric("median");
+
+        description.add_options()
+            ("metric,m", po::value(&metric), "Specify metric type (median,mean,variance,deviation)");
 
         std::stringstream description_stream;
         description_stream << description;
@@ -69,6 +76,7 @@ public:
             description_stream.str(),
             help,
             std::move(config_path),
+            std::move(metric),
             std::move(log_level)
         );
     }
@@ -85,6 +93,10 @@ public:
         return _config_path;
     }
 
+    const std::string& metric() const noexcept {
+        return _metric;
+    }
+
     const std::string& log_level() const noexcept {
         return _log_level;
     }
@@ -92,17 +104,20 @@ private:
     std::string _description;
     bool _help;
     fs::path _config_path;
+    std::string _metric;
     std::string _log_level;
 
     options(
         std::string&& description,
         bool help,
         fs::path&& config_path,
+        std::string&& metric,
         std::string&& log_level
     ) :
         _description(std::move(description)),
         _help(help),
         _config_path(std::move(config_path)),
+        _metric(std::move(metric)),
         _log_level(std::move(log_level))
     {}
 };
