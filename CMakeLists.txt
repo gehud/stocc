@@ -6,8 +6,8 @@ project(Stocc
 )
 
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/stocc/project.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/stocc/project.hpp"
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/stocc/project.hpp.in
+    ${CMAKE_CURRENT_BINARY_DIR}/stocc/project.hpp
     @ONLY
 )
 
@@ -19,6 +19,7 @@ include(FetchContent)
 set(BOOST_INCLUDE_LIBRARIES
     accumulators
     algorithm
+    multiprecision
     program_options
 )
 
@@ -49,23 +50,34 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(tomlplusplus)
 
 file(GLOB_RECURSE PROJECT_SOURCE_FILES
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.hpp"
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/*.hpp
 )
 
 add_executable(${PROJECT_NAME} ${PROJECT_SOURCE_FILES})
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
-    OUTPUT_NAME "stocc"
+    OUTPUT_NAME stocc
 )
 
-target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(${PROJECT_NAME} PRIVATE
+
+add_library(dependencies INTERFACE)
+target_include_directories(dependencies INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(dependencies INTERFACE
     Boost::accumulators
     Boost::algorithm
+    Boost::multiprecision
     Boost::program_options
     spdlog::spdlog
     tomlplusplus::tomlplusplus
 )
+
+target_link_libraries(${PROJECT_NAME} PRIVATE dependencies)
+
+enable_testing()
+
+add_executable(metric_test tests/metric_test.cpp)
+target_link_libraries(metric_test PRIVATE dependencies)
+add_test(NAME metric_test COMMAND metric_test)

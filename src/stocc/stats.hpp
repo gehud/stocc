@@ -1,12 +1,16 @@
 #pragma once
 
+#include <algorithm>
+#include <cmath>
 #include <concepts>
 #include <expected>
 #include <filesystem>
 #include <fstream>
 #include <print>
+#include <queue>
 #include <ranges>
 #include <string_view>
+#include <vector>
 
 #include <boost/accumulators/accumulators.hpp>
 #include <boost/accumulators/statistics.hpp>
@@ -16,6 +20,76 @@
 
 namespace accum = boost::accumulators;
 namespace fs = std::filesystem;
+
+namespace boost {
+namespace accumulators {
+
+namespace impl {
+
+template<typename Sample>
+struct with_queue_median_accumulator : accumulator_base
+{
+    using result_type = Sample;
+
+    template<typename Args>
+    with_queue_median_accumulator(Args const& args) {}
+
+    template<typename Args>
+    void operator()(Args const& args) {
+        if (_max_heap.empty() || args[sample] <= _max_heap.top()) {
+            _max_heap.push(args[sample]);
+        } else {
+            _min_heap.push(args[sample]);
+        }
+
+        // Balance the heaps
+        if (_max_heap.size() > _min_heap.size() + 1) {
+            _min_heap.push(_max_heap.top());
+            _max_heap.pop();
+        } else if (_min_heap.size() > _max_heap.size()) {
+            _max_heap.push(_min_heap.top());
+            _min_heap.pop();
+        }
+    }
+
+    result_type result(dont_care) const {
+        if (_max_heap.size() == 0) {
+            return 0.0f; // Nothing happened. Probably all zeros.
+        } else if (_max_heap.size() == _min_heap.size()) {
+            return (_max_heap.top() + _min_heap.top()) / 2.0;
+        } else {
+            return _max_heap.top();
+        }
+    }
+private:
+    std::priority_queue<Sample> _max_heap; // Heap for the smaller half of the data
+    std::priority_queue<
+        Sample,
+        std::vector<Sample>,
+        std::greater<Sample>
+    > _min_heap; // Heap for the larger half of the data
+};
+
+} // namespace impl
+
+namespace tag {
+
+struct with_queue_median : depends_on<count> {
+    using impl = accumulators::impl::with_queue_median_accumulator<mpl::_1>;
+};
+
+} // namespace tag
+
+namespace extract {
+
+extractor<tag::with_queue_median> const with_queue_median = {};
+
+} // namespace extract
+
+using extract::with_queue_median;
+
+} // namespace accumulators
+} // namespace boost
 
 namespace stocc {
 
@@ -40,48 +114,28 @@ public:
     using tag = T;
 
     virtual double_t collect(double_t value) {
-        accumulator()(value);
-        return extractor()(accumulator());
+        set()(value);
+        return extractor()(set());
     }
 protected:
     using accumulator_set = accum::accumulator_set<double_t, accum::stats<tag>>;
     using accumulator_extractor = accum::extractor<T>;
 
-    accumulator_set& accumulator() {
-        return _accumulator;
+    accumulator_set& set() {
+        return _set;
     }
 
     accumulator_extractor& extractor() {
         return _extractor;
     }
 private:
-    accumulator_set _accumulator;
+    accumulator_set _set;
     accumulator_extractor _extractor;
 };
 
-class median : public metric_base<accum::tag::median> {
+class median : public metric_base<accum::tag::with_queue_median> {
 public:
     static constexpr std::string_view name = "median";
-
-    median() : _index(0) {}
-
-    double_t collect(double_t value) override {
-        accumulator()(value);
-
-        if (_index == 0) {
-            ++_index;
-            _first = value;
-            return value;
-        } else if (_index == 1) {
-            ++_index;
-            return (_first + value) / 2.0;
-        } else {
-            return accum::median(accumulator());
-        }
-    }
-private:
-    size_t _index;
-    double_t _first;
 };
 
 class mean : public metric_base<accum::tag::mean> {
@@ -92,6 +146,15 @@ public:
 class variance : public metric_base<accum::tag::variance> {
 public:
     static constexpr std::string_view name = "variance";
+};
+
+class deviation : public variance {
+public:
+    static constexpr std::string_view name = "deviation";
+
+    double_t collect(double_t value) override {
+        return std::sqrt(variance::collect(value));
+    }
 };
 
 } // namespace metrics
