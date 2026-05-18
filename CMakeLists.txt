@@ -76,6 +76,14 @@ target_link_libraries(${PROJECT_NAME} PRIVATE dependencies)
 
 enable_testing()
 
-add_executable(metric_test tests/metric_test.cpp)
-target_link_libraries(metric_test PRIVATE dependencies)
-add_test(NAME metric_test COMMAND metric_test)
+function (create_test name)
+    add_executable(${name}_test tests/${name}_test.cpp)
+    target_link_libraries(${name}_test PRIVATE dependencies)
+    target_include_directories(${name}_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+    add_test(NAME ${name}_test COMMAND ${name}_test)
+endfunction()
+
+create_test(deviation)
+create_test(mean)
+create_test(median)
+create_test(variance)
