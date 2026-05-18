@@ -8,6 +8,8 @@
 #include "stocc/stats.hpp"
 
 int main(int argc, char* argv[]) {
+    stocc::register_metrics();
+
     auto options_parse_result = stocc::options::parse(argc, argv);
     if (!options_parse_result.has_value()) {
         std::println(stderr, "{}", options_parse_result.error().what());

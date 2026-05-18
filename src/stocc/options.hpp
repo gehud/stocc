@@ -10,6 +10,7 @@
 #include <boost/program_options.hpp>
 
 #include "stocc/config.hpp"
+#include "stocc/stats.hpp"
 
 namespace fs = std::filesystem;
 namespace po = boost::program_options;
@@ -52,8 +53,10 @@ public:
 
         std::string metric("median");
 
+        auto metrics_description = std::format("Specify metric type ({})", registry.names());
+
         description.add_options()
-            ("metric,m", po::value(&metric), "Specify metric type (median,mean,variance,deviation)");
+            ("metric,m", po::value(&metric), metrics_description.c_str());
 
         std::stringstream description_stream;
         description_stream << description;

@@ -6,11 +6,13 @@
 #include <expected>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <print>
 #include <queue>
 #include <ranges>
 #include <string_view>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <boost/accumulators/accumulators.hpp>
@@ -23,6 +25,8 @@
 namespace accum = boost::accumulators;
 namespace algo = boost::algorithm;
 namespace fs = std::filesystem;
+namespace ranges = std::ranges;
+namespace views = std::views;
 
 namespace boost {
 namespace accumulators {
@@ -276,6 +280,54 @@ private:
     size_t _index;
 };
 
+struct metric_registration {
+    std::expected<void, dataset_error>(*print)(
+        const config& config,
+        datasets&& datasets
+    );
+};
+
+class metric_registry {
+public:
+    std::optional<metric_registration> get(const std::string& name) const {
+        auto it = this->_map.find(name);
+
+        if (it == this->_map.end()) {
+            return std::nullopt;
+        }
+
+        return std::optional(it->second);
+    }
+
+    template<metrics::metric M>
+    void add() {
+        auto print = [](const config& config, datasets&& datasets) -> std::expected<void, dataset_error> {
+            return print_metric<M>(config, std::move(datasets));
+        };
+
+        metric_registration registration {
+            print
+        };
+
+        this->_map.emplace(M::name, registration);
+    }
+
+    std::string names() const {
+        return this->_map | views::keys | views::join_with(',') | ranges::to<std::string>();
+    }
+private:
+    std::unordered_map<std::string, metric_registration> _map;
+};
+
+static metric_registry registry;
+
+void register_metrics() {
+    registry.add<metrics::median>();
+    registry.add<metrics::mean>();
+    registry.add<metrics::variance>();
+    registry.add<metrics::deviation>();
+}
+
 template<metrics::metric M>
 std::expected<void, dataset_error> print_metric(const config& config, datasets&& datasets) {
     auto output_file_path = config.output / std::format("{}_result.csv", M::name);
@@ -309,20 +361,17 @@ std::expected<void, dataset_error> print_stats(
 ) {
     auto normalized_metric = algo::to_lower_copy(algo::trim_copy(metric));
 
-    if (normalized_metric == "median") {
-        return print_metric<metrics::median>(config, std::move(datasets));
-    } else if (normalized_metric == "mean") {
-        return print_metric<metrics::mean>(config, std::move(datasets));
-    } else if (normalized_metric == "variance") {
-        return print_metric<metrics::variance>(config, std::move(datasets));
-    } else if (normalized_metric == "deviation") {
-        return print_metric<metrics::deviation>(config, std::move(datasets));
+    auto registration = registry.get(normalized_metric);
+
+    if (registration) {
+        return registration->print(config, std::move(datasets));
     }
 
     return std::unexpected(dataset_error(std::format(
         "unexpected metric type specified: '{}'. "
-        "Valid types: (median,mean,variance,deviation)",
-        normalized_metric
+        "Valid types: ({})",
+        normalized_metric,
+        registry.names()
     )));
 }
 
