@@ -1,10 +1,10 @@
 # Stocс — Stock exchange calculator
 
-A small command-line utility to analyze stock exchange median price.
+A small command-line utility to analyze stock exchange metrics.
 
 ## Features
 
-- Compute and print the median value
+- Compute and print metrics
 - Minimal, fast C++ implementation (C++23)
 
 ## Requirements
@@ -55,7 +55,15 @@ To enable logging specify log level with `--log-level` or `-l` argument:
 stocc --log-level info
 ```
 
-Available logging levels (trace, debug, info, warn, err, critical, off).
+Available logging levels (`trace`, `debug`, `info`, `warn`, `err`, `critical`, `off`).
+
+To specify metric type (default is `median`) use `--metric` or `-m` argument:
+
+```bash
+stocc --metric variance
+```
+
+Available metric types (`deviation`, `mean`, `median`, `variance`).
 
 ## Configuration
 
