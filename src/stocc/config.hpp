@@ -133,13 +133,7 @@ struct config {
     static std::expected<config, config_error> load(const fs::path& path) {
         std::error_code error_code;
 
-        auto is_path_exists = fs::exists(path, error_code);
-
-        if (error_code) {
-            return std::unexpected(config_error(error_code.message()));
-        }
-
-        if (!is_path_exists) {
+        if (!fs::exists(path, error_code)) {
             auto is_default_path = path.generic_string() == config::default_path;
 
             std::string error_message;
@@ -159,7 +153,7 @@ struct config {
             return std::unexpected(config_error(error_message));
         }
 
-        if (!fs::is_regular_file(path)) {
+        if (!fs::is_regular_file(path, error_code)) {
             return std::unexpected(config_error(std::format(
                 "path does not lead to a file: '{}'",
                 path.string()
@@ -223,13 +217,7 @@ struct config {
 
         input_value = *new_input_value;
 
-        auto input_exists = fs::exists(input_value, error_code);
-
-        if (error_code) {
-            return std::unexpected(config_error(error_code.message()));
-        }
-
-        if (!input_exists) {
+        if (!fs::exists(input_value, error_code)) {
             return std::unexpected(config_error(
                 input.node()->source(),
                 std::format(
@@ -239,13 +227,7 @@ struct config {
             ));
         }
 
-        auto input_is_directory = fs::is_directory(input_value, error_code);
-
-        if (error_code) {
-            return std::unexpected(config_error(error_code.message()));
-        }
-
-        if (!input_is_directory) {
+        if (!fs::is_directory(input_value, error_code)) {
             return std::unexpected(config_error(
                 input.node()->source(),
                 std::format(
@@ -272,20 +254,8 @@ struct config {
             output_value = *new_output_value;
         }
 
-        auto output_exists = fs::exists(output_value, error_code);
-
-        if (error_code) {
-            return std::unexpected(config_error(error_code.message()));
-        }
-
-        auto output_is_directory = fs::is_directory(output_value, error_code);
-
-        if (error_code) {
-            return std::unexpected(config_error(error_code.message()));
-        }
-
-        if (output_exists) {
-            if (!output_is_directory) {
+        if (fs::exists(output_value, error_code)) {
+            if (!fs::is_directory(output_value, error_code)) {
                 return std::unexpected(config_error(
                     output.node()->source(),
                     std::format(
@@ -301,9 +271,7 @@ struct config {
                 output_value.string()
             );
         } else {
-            fs::create_directories(output_value, error_code);
-
-            if (error_code) {
+            if (!fs::create_directories(output_value, error_code)) {
                 return std::unexpected(config_error(
                     output.node()->source(),
                     std::format(
